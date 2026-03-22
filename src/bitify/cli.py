@@ -3,7 +3,7 @@ import os
 import click
 from iterfzf import iterfzf
 
-from .pipeline import run_hq_pipeline
+from .dsp_pipeline import run_dsp_pipeline
 
 IGNORE_DIRS = {
     '.git', 'node_modules', 'venv', '__pycache__', '.idea', '.vscode',
@@ -30,8 +30,7 @@ def main(input_file, output, check_pipeline):
     """
     Convert an audio file into an authentic 8-bit chiptune cover.
 
-    Uses AI source separation (Demucs) to split the track into stems, applies
-    per-stem 8-bit DSP, then mixes everything back into a single chiptune MP3.
+    Uses DSP: low-pass filter + bitcrushing + saturation + compression.
 
     Run without arguments to pick a file interactively with the fuzzy finder.
     """
@@ -62,14 +61,14 @@ def main(input_file, output, check_pipeline):
 
         file_to_convert = selection
 
-    click.echo(f"\n🎮 8bitify — AI Chiptune Converter")
+    click.echo(f"\n🎮 8bitify — Chiptune Converter")
     click.echo(f"   Input : {file_to_convert}")
     if output:
         click.echo(f"   Output: {output}")
     click.echo("")
 
     try:
-        out = run_hq_pipeline(file_to_convert, output)
+        out = run_dsp_pipeline(file_to_convert, output)
 
         if out:
             click.echo(f"\n✅  Done! Saved to: {out}")
