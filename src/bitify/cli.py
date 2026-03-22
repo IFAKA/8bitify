@@ -94,11 +94,24 @@ def main(input_file, output, hq, check_pipeline):
             
         if out:
             click.echo(f"Success! Saved to: {out}")
+            # --- Chiptune Authenticity Measurement ---
+            from .validator import validate, print_report
+            click.echo("\n📊 Measuring chiptune authenticity...")
+            click.echo("\n  [INPUT]")
+            in_report = validate(file_to_convert)
+            print_report(in_report)
+            click.echo("\n  [OUTPUT]")
+            out_report = validate(out)
+            print_report(out_report)
+            delta = out_report["chiptune_score"] - in_report["chiptune_score"]
+            arrow = "📈" if delta >= 0 else "📉"
+            click.echo(f"  {arrow} Score delta: {'+' if delta >= 0 else ''}{delta:.1f} points")
         else:
             if not hq:
                 click.echo("Conversion failed.")
     except Exception as e:
-        click.echo(f"An error occurred: {e}")
+        from .utils import print_agent_error_report
+        print_agent_error_report(e, "Main CLI")
         # Check if it might be ffmpeg related
         if "ffmpeg" in str(e).lower() or "ffprobe" in str(e).lower():
             click.echo("\nTip: Ensure 'ffmpeg' is installed and in your PATH.")

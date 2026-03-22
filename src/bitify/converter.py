@@ -22,7 +22,7 @@ def apply_chiptune_filter(samples, sample_rate):
     # 2. Resonant Low-Pass Filter (The 'Handheld Speaker' effect)
     # Most retro chips cut off around 4kHz-6kHz
     nyquist = sample_rate / 2
-    cutoff = 5000 / nyquist
+    cutoff = min(5000 / nyquist, 0.99)
     b, a = signal.butter(4, cutoff, btype='low', analog=False)
     samples = signal.lfilter(b, a, samples)
 
