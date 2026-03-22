@@ -1,5 +1,17 @@
 import os
 import sys
+
+# Python 3.13 compatibility shim for pydub
+try:
+    import audioop
+except ImportError:
+    try:
+        import audioop_lts
+        sys.modules['audioop'] = audioop_lts
+        sys.modules['pyaudioop'] = audioop_lts
+    except ImportError:
+        pass
+
 import click
 from iterfzf import iterfzf
 from .converter import convert_to_8bit

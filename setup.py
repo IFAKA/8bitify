@@ -11,6 +11,7 @@ setup(
         'numpy',
         'iterfzf',
         'scipy',
+        'audioop-lts',
     ],
     entry_points={
         'console_scripts': [
