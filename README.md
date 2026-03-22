@@ -10,12 +10,12 @@
 
 ---
 
-## 🚀 Instant Setup
+## 🚀 Instant Install
 
-Get started with a single command (requires `ffmpeg` and `python3`):
+Copy and paste this one-liner into your terminal:
 
-```bash
-git clone https://github.com/faka/8bitify.git && cd 8bitify && ./install.sh
+```sh
+curl -fsSL https://raw.githubusercontent.com/IFAKA/8bitify/main/install.sh | sh
 ```
 
 ### 🛠 Prerequisites
@@ -58,8 +58,8 @@ Convert a specific file directly:
 
 Remove everything with no trace:
 
-```bash
-cd 8bitify && ./uninstall.sh && cd .. && rm -rf 8bitify
+```sh
+curl -fsSL https://raw.githubusercontent.com/IFAKA/8bitify/main/uninstall.sh | sh
 ```
 
 ---
