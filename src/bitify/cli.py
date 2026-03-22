@@ -3,7 +3,7 @@ import os
 import click
 from iterfzf import iterfzf
 
-from .dsp_pipeline import run_dsp_pipeline
+from .simple_pipeline import run_simple_pipeline
 
 IGNORE_DIRS = {
     '.git', 'node_modules', 'venv', '__pycache__', '.idea', '.vscode',
@@ -68,7 +68,7 @@ def main(input_file, output, check_pipeline):
     click.echo("")
 
     try:
-        out = run_dsp_pipeline(file_to_convert, output)
+        out = run_simple_pipeline(file_to_convert, output)
 
         if out:
             click.echo(f"\n✅  Done! Saved to: {out}")

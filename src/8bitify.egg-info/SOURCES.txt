@@ -1,3 +1,5 @@
+LICENSE
+README.md
 setup.py
 src/8bitify.egg-info/PKG-INFO
 src/8bitify.egg-info/SOURCES.txt
@@ -7,4 +9,10 @@ src/8bitify.egg-info/requires.txt
 src/8bitify.egg-info/top_level.txt
 src/bitify/__init__.py
 src/bitify/cli.py
-src/bitify/converter.py
+src/bitify/health.py
+src/bitify/mixer.py
+src/bitify/pipeline.py
+src/bitify/processor.py
+src/bitify/separation.py
+src/bitify/utils.py
+src/bitify/validator.py
