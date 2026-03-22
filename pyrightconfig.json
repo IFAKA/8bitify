@@ -1,0 +1,8 @@
+{
+  "pythonVersion": "3.14",
+  "pythonPlatform": "Darwin",
+  "pythonPath": "/opt/homebrew/opt/python@3.14/bin/python3.14",
+  "venvPath": "/opt/homebrew/lib/python3.14/site-packages",
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false
+}
