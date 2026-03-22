@@ -12,6 +12,7 @@ setup(
         'iterfzf',
         'scipy',
         'audioop-lts',
+        'librosa',
     ],
     entry_points={
         'console_scripts': [
