@@ -20,10 +20,11 @@ from scipy import signal
 import librosa
 
 
-def detect_melody_with_confidence(y, sr, hop_length=512, min_voiced_ratio=0.3):
+def detect_melody_with_confidence(y, sr, hop_length=512, min_voiced_ratio=0.5):
     """
     Detect melody from audio with confidence filtering.
     Only returns pitches where we're confident (voiced frames).
+    Smooths pitch contour to remove jitter.
 
     Returns: list of (time_s, freq_hz) tuples where voiced_flag=True
     """
@@ -37,13 +38,6 @@ def detect_melody_with_confidence(y, sr, hop_length=512, min_voiced_ratio=0.3):
         return []
 
     frame_dur = hop_length / sr
-    melody_points = []
-
-    for i, (hz, v) in enumerate(zip(f0, voiced)):
-        # Only include voiced frames that have valid pitch
-        if v and not np.isnan(hz):
-            time_s = i * frame_dur
-            melody_points.append((time_s, hz))
 
     # Filter: only use if we have enough voiced frames
     voiced_count = np.sum(voiced)
@@ -53,6 +47,26 @@ def detect_melody_with_confidence(y, sr, hop_length=512, min_voiced_ratio=0.3):
     if voiced_ratio < min_voiced_ratio:
         logging.info(f"Low voiced ratio ({voiced_ratio:.1%}), no synthesis")
         return []
+
+    # Smooth pitch contour: median filter to remove jitter
+    f0_smooth = f0.copy()
+    for i in range(1, len(f0) - 1):
+        if voiced[i]:
+            # Use median of current + neighbors (only if voiced)
+            neighbors = []
+            if voiced[i-1]:
+                neighbors.append(f0[i-1])
+            neighbors.append(f0[i])
+            if voiced[i+1]:
+                neighbors.append(f0[i+1])
+            f0_smooth[i] = np.median(neighbors)
+
+    # Extract voiced frames only
+    melody_points = []
+    for i, (hz, v) in enumerate(zip(f0_smooth, voiced)):
+        if v and not np.isnan(hz) and hz > 0:
+            time_s = i * frame_dur
+            melody_points.append((time_s, hz))
 
     logging.info(f"Detected melody: {len(melody_points)} voiced frames ({voiced_ratio:.1%})")
     return melody_points
@@ -128,28 +142,51 @@ def process_with_honest_synthesis(input_path, output_path=None):
             # Fall back to filtered original
             synth = np.zeros_like(samples)
         else:
-            # Step 2: Synthesize only confident detections
+            # Step 2: Group voiced frames into note segments
+            logging.info("Grouping voiced frames into note segments...")
+            note_segments = []
+            current_segment = []
+
+            for time_s, freq_hz in melody_points:
+                if not current_segment:
+                    current_segment = [(time_s, freq_hz)]
+                else:
+                    # Check if this frame is close to the previous one in time (< 50ms gap)
+                    last_time = current_segment[-1][0]
+                    if time_s - last_time < 0.05:  # 50ms threshold
+                        current_segment.append((time_s, freq_hz))
+                    else:
+                        # Start new segment
+                        if len(current_segment) > 1:  # Only keep segments with 2+ frames
+                            note_segments.append(current_segment)
+                        current_segment = [(time_s, freq_hz)]
+
+            # Add final segment
+            if len(current_segment) > 1:
+                note_segments.append(current_segment)
+
+            logging.info(f"Created {len(note_segments)} note segments")
+
+            # Step 3: Synthesize note segments
             logging.info("Synthesizing square wave melody...")
             synth = np.zeros_like(samples)
 
-            for i in range(len(melody_points)):
-                time_s, freq_hz = melody_points[i]
+            for segment in note_segments:
+                # Use average frequency of segment (more stable)
+                freqs = [freq_hz for _, freq_hz in segment]
+                freq_avg = np.median(freqs)
+                freq_quantized = quantize_to_semitone(freq_avg)
 
-                # Quantize to semitone
-                freq_quantized = quantize_to_semitone(freq_hz)
-
-                # Duration: until next note or 0.1s
-                if i < len(melody_points) - 1:
-                    next_time_s = melody_points[i + 1][0]
-                    duration_s = next_time_s - time_s
-                else:
-                    duration_s = 0.1
+                # Duration: from start of first frame to end of last frame
+                start_time_s = segment[0][0]
+                end_time_s = segment[-1][0]
+                duration_s = max(end_time_s - start_time_s + 0.05, 0.05)
 
                 # Synthesize
                 note = synthesize_square_wave(freq_quantized, duration_s, sr)
 
                 # Place in output
-                start_idx = int(time_s * sr)
+                start_idx = int(start_time_s * sr)
                 end_idx = min(start_idx + len(note), len(synth))
                 synth[start_idx:end_idx] = note[:end_idx - start_idx]
 
