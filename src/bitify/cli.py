@@ -1,7 +1,7 @@
 import os
 import sys
 
-# Python 3.13 compatibility shim for pydub
+# Python 3.13+ compatibility shim for pydub
 try:
     import audioop
 except ImportError:
@@ -23,96 +23,67 @@ IGNORE_DIRS = {
 AUDIO_EXTENSIONS = {'.mp3', '.wav', '.flac', '.ogg', '.m4a'}
 
 def find_audio_files(root_dir='.'):
-    """
-    Generator that yields audio files in the current directory and subdirectories,
-    skipping ignored directories.
-    """
     for root, dirs, files in os.walk(root_dir):
-        # Modify dirs in-place to skip ignored directories
         dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
-        
         for file in files:
             ext = os.path.splitext(file)[1].lower()
             if ext in AUDIO_EXTENSIONS:
-                # Yield relative path for better UX in list
                 yield os.path.relpath(os.path.join(root, file), root_dir)
 
 @click.command()
 @click.argument('input_file', required=False, type=click.Path(exists=True))
 @click.option('--output', '-o', help='Output file path.')
-@click.option('--hq', is_flag=True, help='Use High-Quality mode (AI stems separation)')
-@click.option('--check-pipeline', is_flag=True, help='Run a self-health check on the pipeline')
-def main(input_file, output, hq, check_pipeline):
+@click.option('--check-pipeline', is_flag=True, help='Run a self-health check on the pipeline.')
+def main(input_file, output, check_pipeline):
     """
-    Converts audio files to an 8-bit chiptune style.
-    
-    If INPUT_FILE is provided, converts that file.
-    If not provided, opens a fuzzy finder to select a file from the current directory.
+    Converts an audio file to an authentic 8-bit chiptune.
+
+    Run without arguments to pick a file with the fuzzy finder.
     """
     if check_pipeline:
         from .health import run_pipeline_check
         run_pipeline_check()
         return
 
-    # Check for ffmpeg (basic check)
-    # pydub usually warns, but we can do a quick shutil check if we want.
-    # We'll rely on pydub's error handling for now but wrap the call.
-
     file_to_convert = input_file
 
     if not file_to_convert:
-        # Fuzzy finder mode
         click.echo("Scanning for audio files...")
         files = list(find_audio_files())
-        
+
         if not files:
             click.echo("No audio files found in current directory.")
             return
 
         try:
-            # simple iterfzf call
             selection = iterfzf(files, prompt="Select a track > ")
         except Exception as e:
-            # Fallback or error if fzf binary is missing/fails
             click.echo(f"Error launching selection menu: {e}")
             return
 
         if not selection:
             click.echo("No file selected.")
             return
-        
+
         file_to_convert = selection
 
     click.echo(f"Processing: {file_to_convert}")
-    
+
     try:
-        if hq:
-            from .pipeline import run_hq_pipeline
-            out = run_hq_pipeline(file_to_convert, output)
-        else:
-            out = convert_to_8bit(file_to_convert, output)
-            
+        out = convert_to_8bit(file_to_convert, output)
+
         if out:
             click.echo(f"Success! Saved to: {out}")
-            # --- Chiptune Authenticity Measurement ---
             from .validator import validate, print_report
             click.echo("\n📊 Measuring chiptune authenticity...")
-            click.echo("\n  [INPUT]")
-            in_report = validate(file_to_convert)
-            print_report(in_report)
-            click.echo("\n  [OUTPUT]")
             out_report = validate(out)
             print_report(out_report)
-            delta = out_report["chiptune_score"] - in_report["chiptune_score"]
-            arrow = "📈" if delta >= 0 else "📉"
-            click.echo(f"  {arrow} Score delta: {'+' if delta >= 0 else ''}{delta:.1f} points")
         else:
-            if not hq:
-                click.echo("Conversion failed.")
+            click.echo("Conversion failed.")
+
     except Exception as e:
         from .utils import print_agent_error_report
         print_agent_error_report(e, "Main CLI")
-        # Check if it might be ffmpeg related
         if "ffmpeg" in str(e).lower() or "ffprobe" in str(e).lower():
             click.echo("\nTip: Ensure 'ffmpeg' is installed and in your PATH.")
             click.echo("MacOS: brew install ffmpeg")
