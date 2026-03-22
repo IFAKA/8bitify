@@ -2,15 +2,41 @@ import os
 import numpy as np
 from pydub import AudioSegment
 from scipy.io import wavfile
+from scipy import signal
+
+def apply_chiptune_filter(samples, sample_rate):
+    """
+    Applies DSP techniques to make audio sound like a retro game console.
+    """
+    # 1. Normalize and Squash (Compression)
+    # We want to push the signal toward the limits to simulate square-ish waves
+    samples = samples.astype(np.float32)
+    max_val = np.max(np.abs(samples))
+    if max_val > 0:
+        samples /= max_val
+    
+    # Apply a hard clipper/sigmoid to 'square' the waves
+    # This adds harmonic distortion characteristic of 8-bit chips
+    samples = np.tanh(samples * 1.5) 
+    
+    # 2. Resonant Low-Pass Filter (The 'Handheld Speaker' effect)
+    # Most retro chips cut off around 4kHz-6kHz
+    nyquist = sample_rate / 2
+    cutoff = 5000 / nyquist
+    b, a = signal.butter(4, cutoff, btype='low', analog=False)
+    samples = signal.lfilter(b, a, samples)
+
+    # 3. Quantization (8-bit)
+    # We map the -1.0 to 1.0 range to 256 discrete levels
+    # Then we map it back to 16-bit integers for pydub
+    samples = np.round(samples * 127) # 8-bit signed range (-127 to 127)
+    samples = samples * (32767 / 127) # Scale back to 16-bit range
+    
+    return samples.astype(np.int16)
 
 def convert_to_8bit(input_path, output_path=None, bitrate="8k"):
     """
     Converts an audio file to an 8-bit chiptune style.
-    
-    Args:
-        input_path (str): Path to input file.
-        output_path (str): Path to save output. If None, appends '_8bit'.
-        bitrate (str): Target sample rate for the 'lo-fi' effect (e.g., '8000', '11025').
     """
     if output_path is None:
         base, ext = os.path.splitext(input_path)
@@ -24,47 +50,23 @@ def convert_to_8bit(input_path, output_path=None, bitrate="8k"):
         return None
 
     # 1. Downsample (Low-Fi effect)
-    # 8000Hz is very 'phone' or 'gameboy' like. 
-    # 11025Hz is a bit better but still retro.
     target_sample_rate = 8000 
-    
-    # We use set_frame_rate which handles resampling. 
-    # To get a grittier sound, we could just drop samples, but this is safer.
     audio = audio.set_frame_rate(target_sample_rate)
-    
-    # 2. Convert to Mono (Gameboys were often mono or limited stereo)
     audio = audio.set_channels(1)
 
-    # 3. Bitcrush (Quantization)
-    # Get raw samples as numpy array
-    # pydub samples are usually 16-bit ints (signed)
+    # 2. Extract samples and apply the Chiptune DSP pipeline
     samples = np.array(audio.get_array_of_samples())
+    processed_samples = apply_chiptune_filter(samples, target_sample_rate)
     
-    # Reduce bit depth to 8-bit
-    # 16-bit range is -32768 to 32767. 
-    # 8-bit range is 256 values.
-    # Factor to reduce 16-bit to 8-bit resolution: 256
-    # We integer divide by 256 to drop the lower bits, then multiply back 
-    # to scale it up to 16-bit volume levels (but with 8-bit steps).
-    
-    quantization_factor = 256 
-    
-    # Standard bitcrush:
-    # (sample // factor) * factor
-    # This 'steps' the audio.
-    
-    quantized_samples = (samples // quantization_factor) * quantization_factor
-    
-    # Create new AudioSegment from the processed samples
-    # We need to ensure the data type is correct (int16)
-    new_audio = audio._spawn(quantized_samples.astype(np.int16).tobytes())
+    # 3. Rebuild AudioSegment
+    new_audio = audio._spawn(processed_samples.tobytes())
     new_audio = new_audio.set_frame_rate(target_sample_rate)
 
-    # 4. Export
+    # 4. Final Polish
     # Boosting volume a bit can help with the 'crunch' perception
-    new_audio = new_audio + 3 
+    new_audio = new_audio + 6 
     
     print(f"Exporting to {output_path}...")
-    new_audio.export(output_path, format="mp3", bitrate="64k") # Low bitrate mp3 for extra artifacts? Maybe standard 128k.
+    new_audio.export(output_path, format="mp3", bitrate="64k")
     
     return output_path

@@ -40,14 +40,20 @@ def find_audio_files(root_dir='.'):
 @click.command()
 @click.argument('input_file', required=False, type=click.Path(exists=True))
 @click.option('--output', '-o', help='Output file path.')
-def main(input_file, output):
+@click.option('--hq', is_flag=True, help='Use High-Quality mode (AI stems separation)')
+@click.option('--check-pipeline', is_flag=True, help='Run a self-health check on the pipeline')
+def main(input_file, output, hq, check_pipeline):
     """
     Converts audio files to an 8-bit chiptune style.
     
     If INPUT_FILE is provided, converts that file.
     If not provided, opens a fuzzy finder to select a file from the current directory.
     """
-    
+    if check_pipeline:
+        from .health import run_pipeline_check
+        run_pipeline_check()
+        return
+
     # Check for ffmpeg (basic check)
     # pydub usually warns, but we can do a quick shutil check if we want.
     # We'll rely on pydub's error handling for now but wrap the call.
@@ -80,11 +86,17 @@ def main(input_file, output):
     click.echo(f"Processing: {file_to_convert}")
     
     try:
-        out = convert_to_8bit(file_to_convert, output)
+        if hq:
+            from .pipeline import run_hq_pipeline
+            out = run_hq_pipeline(file_to_convert, output)
+        else:
+            out = convert_to_8bit(file_to_convert, output)
+            
         if out:
             click.echo(f"Success! Saved to: {out}")
         else:
-            click.echo("Conversion failed.")
+            if not hq:
+                click.echo("Conversion failed.")
     except Exception as e:
         click.echo(f"An error occurred: {e}")
         # Check if it might be ffmpeg related
