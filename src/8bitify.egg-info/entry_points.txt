@@ -1,0 +1,2 @@
+[console_scripts]
+8bitify = bitify.cli:main

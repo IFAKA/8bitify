@@ -1,0 +1,10 @@
+setup.py
+src/8bitify.egg-info/PKG-INFO
+src/8bitify.egg-info/SOURCES.txt
+src/8bitify.egg-info/dependency_links.txt
+src/8bitify.egg-info/entry_points.txt
+src/8bitify.egg-info/requires.txt
+src/8bitify.egg-info/top_level.txt
+src/bitify/__init__.py
+src/bitify/cli.py
+src/bitify/converter.py

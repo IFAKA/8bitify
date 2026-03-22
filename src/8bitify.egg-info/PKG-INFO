@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: 8bitify
+Version: 0.1.0
+Requires-Dist: click
+Requires-Dist: pydub
+Requires-Dist: numpy
+Requires-Dist: iterfzf
+Requires-Dist: scipy
+Dynamic: requires-dist

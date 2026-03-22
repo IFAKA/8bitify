@@ -1,0 +1,6 @@
+click
+pydub
+numpy
+iterfzf
+scipy
+audioop-lts
