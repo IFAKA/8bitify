@@ -1,80 +1,37 @@
-import os
 import numpy as np
-from pydub import AudioSegment
-from scipy.io import wavfile
 from scipy import signal
+
 
 def apply_chiptune_filter(samples, sample_rate):
     """
-    Applies DSP techniques to make audio sound like a retro game console.
+    Pure DSP: transforms raw audio samples into authentic 8-bit chiptune sound.
+
+    Stages:
+      1. Normalize + tanh saturation  → square-wave character (NES pulse channels)
+      2. Resonant low-pass filter      → retro handheld speaker roll-off (~5 kHz)
+      3. 8-bit quantization            → 256 discrete amplitude levels
     """
-    # 1. Normalize and Squash (Compression)
-    # We want to push the signal toward the limits to simulate square-ish waves
     samples = samples.astype(np.float32)
+
+    # 1. Normalize & saturate
     max_val = np.max(np.abs(samples))
     if max_val > 0:
         samples /= max_val
-    
-    # Apply a hard clipper/sigmoid to 'square' the waves.
-    # tanh gain of 6.0 pushes ~99% of samples to the clipping floor,
-    # producing authentic square-wave saturation (like NES pulse channels).
     samples = np.tanh(samples * 6.0)
-    # Hard clip any residual overshoot to keep it within [-1, 1]
     samples = np.clip(samples, -1.0, 1.0)
-    
-    # 2. Resonant Low-Pass Filter (The 'Handheld Speaker' effect)
-    # Most retro chips cut off around 4kHz-6kHz
+
+    # 2. Low-pass filter (retro chip roll-off ~5 kHz)
     nyquist = sample_rate / 2
-    cutoff = min(5000 / nyquist, 0.99)
+    cutoff = min(5000.0 / nyquist, 0.99)
     b, a = signal.butter(4, cutoff, btype='low', analog=False)
     samples = signal.lfilter(b, a, samples)
 
-    # Re-normalize after filtering (filter can change amplitude)
+    # Re-normalize after filtering
     max_val = np.max(np.abs(samples))
     if max_val > 0:
         samples /= max_val
 
-    # 3. Quantization (8-bit)
-    # Map the -1.0 to 1.0 range to 256 discrete levels (8-bit signed: -127 to 127)
-    # Then scale back to 16-bit integers for pydub storage
-    samples = np.round(samples * 127)  # 256 discrete levels
-    samples = samples * (32767 / 127)  # Scale back to 16-bit range
+    # 3. 8-bit quantization (scale to 16-bit storage for pydub)
+    samples = np.round(samples * 127) * (32767 / 127)
 
     return samples.astype(np.int16)
-
-def convert_to_8bit(input_path, output_path=None, bitrate="8k"):
-    """
-    Converts an audio file to an 8-bit chiptune style.
-    """
-    if output_path is None:
-        base, ext = os.path.splitext(input_path)
-        output_path = f"{base}_8bit.mp3"
-
-    # Load audio
-    try:
-        audio = AudioSegment.from_file(input_path)
-    except Exception as e:
-        print(f"Error loading file: {e}")
-        return None
-
-    # 1. Downsample (Low-Fi effect)
-    target_sample_rate = 8000 
-    audio = audio.set_frame_rate(target_sample_rate)
-    audio = audio.set_channels(1)
-
-    # 2. Extract samples and apply the Chiptune DSP pipeline
-    samples = np.array(audio.get_array_of_samples())
-    processed_samples = apply_chiptune_filter(samples, target_sample_rate)
-    
-    # 3. Rebuild AudioSegment
-    new_audio = audio._spawn(processed_samples.tobytes())
-    new_audio = new_audio.set_frame_rate(target_sample_rate)
-
-    # 4. Final Polish
-    # Boosting volume a bit can help with the 'crunch' perception
-    new_audio = new_audio + 6 
-    
-    print(f"Exporting to {output_path}...")
-    new_audio.export(output_path, format="mp3", bitrate="64k")
-    
-    return output_path
