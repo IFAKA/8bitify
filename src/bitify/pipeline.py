@@ -27,7 +27,9 @@ def run_hq_pipeline(input_path, output_path=None):
             click.echo(f"         Done with {stem_type}.")
             
         click.echo("\n[4/4] 🎚️  Mixing final chiptune track...")
-        result = mix_stems(processed, output_path)
+        from pydub import AudioSegment as _AS
+        _src_duration_ms = len(_AS.from_file(input_path))
+        result = mix_stems(processed, output_path, source_duration_ms=_src_duration_ms)
         
         # Cleanup
         try:

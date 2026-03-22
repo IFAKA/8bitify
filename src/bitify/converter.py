@@ -15,9 +15,12 @@ def apply_chiptune_filter(samples, sample_rate):
     if max_val > 0:
         samples /= max_val
     
-    # Apply a hard clipper/sigmoid to 'square' the waves
-    # This adds harmonic distortion characteristic of 8-bit chips
-    samples = np.tanh(samples * 1.5) 
+    # Apply a hard clipper/sigmoid to 'square' the waves.
+    # tanh gain of 6.0 pushes ~99% of samples to the clipping floor,
+    # producing authentic square-wave saturation (like NES pulse channels).
+    samples = np.tanh(samples * 6.0)
+    # Hard clip any residual overshoot to keep it within [-1, 1]
+    samples = np.clip(samples, -1.0, 1.0)
     
     # 2. Resonant Low-Pass Filter (The 'Handheld Speaker' effect)
     # Most retro chips cut off around 4kHz-6kHz
@@ -26,12 +29,17 @@ def apply_chiptune_filter(samples, sample_rate):
     b, a = signal.butter(4, cutoff, btype='low', analog=False)
     samples = signal.lfilter(b, a, samples)
 
+    # Re-normalize after filtering (filter can change amplitude)
+    max_val = np.max(np.abs(samples))
+    if max_val > 0:
+        samples /= max_val
+
     # 3. Quantization (8-bit)
-    # We map the -1.0 to 1.0 range to 256 discrete levels
-    # Then we map it back to 16-bit integers for pydub
-    samples = np.round(samples * 127) # 8-bit signed range (-127 to 127)
-    samples = samples * (32767 / 127) # Scale back to 16-bit range
-    
+    # Map the -1.0 to 1.0 range to 256 discrete levels (8-bit signed: -127 to 127)
+    # Then scale back to 16-bit integers for pydub storage
+    samples = np.round(samples * 127)  # 256 discrete levels
+    samples = samples * (32767 / 127)  # Scale back to 16-bit range
+
     return samples.astype(np.int16)
 
 def convert_to_8bit(input_path, output_path=None, bitrate="8k"):
