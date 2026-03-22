@@ -206,7 +206,9 @@ def process_with_honest_synthesis(input_path, output_path=None):
         # Step 5: Downsample to 8000 Hz for lo-fi aesthetic
         logging.info("Downsampling to 8000 Hz...")
         mixed_int16 = (mixed * 32767).astype(np.int16)
-        result_audio = audio._spawn(mixed_int16.tobytes()).set_frame_rate(sr)
+        # Create mono audio at original sample rate
+        result_audio = AudioSegment(mixed_int16.tobytes(), frame_rate=sr, sample_width=2, channels=1)
+        # Resample to 8000 Hz
         result_audio = result_audio.set_frame_rate(8000)
 
         # Step 6: Export
